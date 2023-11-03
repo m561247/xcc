@@ -361,9 +361,12 @@ void macro_expand(Vector *tokens) {
       if (args != NULL) {
         int count = macro->params_len +
                     (macro->vaargs_ident != NULL);  // variadic argument is concatenated.
-        if (count != args->len) {
-          const char *cmp = args->len > count ? "many" : "few";
-          pp_parse_error(tok, "Too %s arguments for macro `%.*s'", cmp, NAMES(tok->ident));
+        if (count < args->len) {
+          pp_parse_error(tok, "Too many arguments for macro `%.*s'", NAMES(tok->ident));
+        } else if (count > args->len) {
+          // Allow lesser macro arguments: Fill with empty arguments.
+          for (int i = args->len; i < count; ++i)
+            vec_push(args, new_vector());
         }
 
         assert(next > 0);
