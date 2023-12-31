@@ -18,6 +18,12 @@
 #define INFINITY    (1.0 / 0.0)
 #define HUGE_VAL    INFINITY
 
+int abs(int n);
+long labs(long n);
+long long llabs(long long n);
+
+double ldexp(double x, int exp);
+
 double sin(double);
 double cos(double);
 double tan(double);
@@ -34,6 +40,7 @@ double atanh(double);
 double sqrt(double);
 double log(double x);
 double log10(double x);
+double log2(double x);
 double exp(double x);
 double pow(double base, double x);
 double fabs(double);
