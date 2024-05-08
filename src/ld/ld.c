@@ -651,9 +651,7 @@ static bool output_exe(const char *ofn, uintptr_t entry_address) {
   if (phnum > 1) {
     size_t bss_align = section_aligns[SEC_BSS];
     size_t datamemsz = ALIGN(datasz, bss_align) + bsssz;
-    uintptr_t offset = PROG_START + code_rodata_sz;
-    if (datasz > 0)
-      offset = ALIGN(offset, DATA_ALIGN);
+    uintptr_t offset = datasz > 0 ? ALIGN(PROG_START + code_rodata_sz, DATA_ALIGN) : 0;
     out_program_header(fp, 1, offset, dataloadadr, datasz, datamemsz);
   }
 
