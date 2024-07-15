@@ -1,8 +1,9 @@
 #include "stdio.h"
 
+#include "fcntl.h"  // O_ACCMODE, etc.
 #include "stdbool.h"
 #include "stdlib.h"
-#include "string.h"
+#include "string.h"  // strchr
 
 #include "_file.h"
 
@@ -49,16 +50,12 @@ static int _memflush(FILE *fp) {
   if (wp < fp->ws) {
     fp->wbuf[wp] = '\0';
   }
-  if (fp->pmem != NULL)
-    *fp->pmem = (char*)fp->wbuf;
-  if (fp->psize != NULL)
-    *fp->psize = wp;
   return 0;
 }
 
 static int _memseek(void *cookie, off_t *offset, int origin) {
   FILE *fp = cookie;
-  _memflush(fp);
+  (*fp->flush)(fp);
   switch (origin) {
   case SEEK_SET:
     fp->wp = *offset;
@@ -78,27 +75,46 @@ static int _memseek(void *cookie, off_t *offset, int origin) {
 static int _memclose(void *cookie) {
   FILE *fp = cookie;
   _remove_opened_file(fp);
-  _memflush(fp);
+  (*fp->flush)(fp);
   free(fp);
   return 0;
 }
 
-FILE *fmemopen(void *buf, size_t size, const char *mode) {
-  FILE *fp = fdopen(-1, mode);
-  if (fp != NULL) {
-    static const cookie_io_functions_t kMemVTable = {
-      .read = _memread,
-      .write = _memwrite,
-      .seek = _memseek,
-      .close = _memclose,
-    };
+void _fmemopen2(void *buf, size_t size, const char *mode, FILE *fp) {
+  static const cookie_io_functions_t kMemVTable = {
+    .read = _memread,
+    .write = _memwrite,
+    .seek = _memseek,
+    .close = _memclose,
+  };
 
-    fp->iof = &kMemVTable;
-    fp->flush = _memflush;
-    fp->wbuf = buf;
-    fp->ws = size;
-    fp->pmem = NULL;
-    fp->psize = NULL;
+  fp->iof = &kMemVTable;
+  fp->flush = _memflush;
+  fp->fd = -1;
+  fp->rp = fp->rs = 0;
+  fp->wp = 0;
+  fp->wbuf = buf;
+  fp->ws = size;
+
+  int flag = 0;
+  int oflag = _detect_open_flag(mode);
+  switch (oflag & O_ACCMODE) {
+  case O_RDONLY:  flag |= FF_READ; break;
+  case O_WRONLY:  flag |= FF_WRITE; break;
+  case O_RDWR:    flag |= FF_READ | FF_WRITE; break;
+  default: break;
+  }
+  if (strchr(mode, 'b') != NULL)
+    flag |= FF_BINARY;
+  fp->flag = flag;
+
+  _add_opened_file(fp);
+}
+
+FILE *fmemopen(void *buf, size_t size, const char *mode) {
+  FILE *fp = calloc(1, sizeof(*fp));
+  if (fp != NULL) {
+    _fmemopen2(buf, size, mode, fp);
   }
   return fp;
 }
